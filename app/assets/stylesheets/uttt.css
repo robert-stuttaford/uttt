@@ -1,0 +1,27 @@
+/* CSS for uttt */
+
+#content {
+  margin-top: 30px;
+
+  width: 406px;
+  margin: 40px;
+}
+
+.square {
+  float: left;
+  width: 90px;
+  height: 90px;
+  padding: 10px;
+  border: 1px solid black;
+}
+
+.inner-square div {
+  float: left;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  border: 1px solid black;
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
