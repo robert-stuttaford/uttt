@@ -59,12 +59,7 @@
                     inner-square-template (templates/add-template renderer path
                                                                   (:uttt-inner-square templates))]]
         (dom/append! (dom/by-id outer-square-id)
-                     (inner-square-template {:id inner-square-id :move " "}))
-        
-        (dom-events/listen! (dom/by-id inner-square-id)
-                            :click (fn [evt]
-                                     (dom/log transmitter)
-                                     (p/put-message transmitter {msg/type :play-move msg/topic path :player :x})))))))
+                     (inner-square-template {:id inner-square-id :move " "}))))))
 
 (defn render-move [renderer [_ path _ new-value] transmitter]
   ;; This function responds to a :value event. It uses the
@@ -77,7 +72,15 @@
                                              :x "X"
                                              :o "O"
                                              nil " ")}))
- 
+
+(defn enable-moves [renderer [_ path _ new-value] transmitter]
+  (dom-events/send-on-click (dom/by-id inner-square-id)
+                            transmitter
+                            (fn [evt]
+                              (dom/log transmitter)
+                              (p/put-message transmitter {msg/type :play-move msg/topic path :player :x})))
+  )
+
 ;; The data structure below is used to map rendering data to functions
 ;; which handle rendering for that specific change. This function is
 ;; referenced in config/config.clj and must be a function in order to
