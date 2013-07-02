@@ -44,10 +44,6 @@
                                  :board (into {} (for [i (range 9)]
                                                    [i (into {} (for [i (range 9)]
                                                                  [i nil]))]))})
-    (p/put-message (:input app) {msg/type :play-move msg/topic [:ttt 0 4] :player :x})
-    (p/put-message (:input app) {msg/type :play-move msg/topic [:ttt 4 1] :player :o})
-    (p/put-message (:input app) {msg/type :play-move msg/topic [:ttt 1 2] :player :x})
-    (.log js/console (:input app))
     ;; Returning the app and app-model from the main function allows
     ;; the tooling to add support for useful features like logging
     ;; and recording.

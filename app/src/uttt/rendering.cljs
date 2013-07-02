@@ -3,48 +3,18 @@
             [domina.events :as dom-events]
             [io.pedestal.app.protocols :as p]
             [io.pedestal.app.messages :as msg]
+            [io.pedestal.app.render.events :as events]
             [io.pedestal.app.render.push :as render]
             [io.pedestal.app.render.push.templates :as templates]
             [io.pedestal.app.render.push.handlers.automatic :as d])
   (:require-macros [uttt.html-templates :as html-templates]))
 
-;; Load templates.
-
 (def templates (html-templates/uttt-templates))
 
-;; The way rendering is handled below is the result of using the
-;; renderer provided in `io.pedestal.app.render`. The only requirement
-;; for a renderer is that it must implement the Renderer protocol.
-;;
-;; This renderer dispatches to rendering functions based on the
-;; requested change. See the render-config table below. Each render
-;; function takes three arguments: renderer, render operation and a
-;; a transmitter which is used to send data back to the application's
-;; behavior. This example does not use the transmitter.
-
 (defn render-page [renderer [_ path] transmitter]
-  (let [ ;; The renderer that we are using here helps us map changes to
-        ;; the UI tree to the DOM. It keeps a mapping of paths to DOM
-        ;; ids. The `get-parent-id` function will return the DOM id of
-        ;; the parent of the node at path. If the path is [:a :b :c]
-        ;; then this will find the id associated with [:a :b]. The
-        ;; root node [] is configured when we created the renderer.
-        parent (render/get-parent-id renderer path)
-        ;; Use the `new-id!` function to associate a new id to the
-        ;; given path. With two arguments, this function will generate
-        ;; a random unique id. With three arguments, the given id will
-        ;; be associated with the given path.
+  (let [parent (render/get-parent-id renderer path)
         id (render/new-id! renderer path)
-        ;; Get the dynamic template named :uttt-page
-        ;; from the templates map. The `add-template` function will
-        ;; associate this template with the node at
-        ;; path. `add-template` returns a function that can be called
-        ;; to generate the initial HTML.
         html (templates/add-template renderer path (:uttt-board templates))]
-    
-    ;; Call the `html` function, passing the initial values for the
-    ;; template. This returns an HTML string which is then added to
-    ;; the DOM using Domina.
     (dom/append! (dom/by-id parent) (html {:id id :board ""}))
 
     (doseq [i (range 9)
@@ -62,46 +32,32 @@
                      (inner-square-template {:id inner-square-id :move " "}))))))
 
 (defn render-move [renderer [_ path _ new-value] transmitter]
-  ;; This function responds to a :value event. It uses the
-  ;; `update-t` function to update the template at `path` with the new
-  ;; values in the passed map.
-
-  (dom/log "render-move" path new-value)
-  
   (templates/update-t renderer path {:move (case new-value
                                              :x "X"
                                              :o "O"
                                              nil " ")}))
 
-(defn enable-moves [renderer [_ path _ new-value] transmitter]
-  (dom-events/send-on-click (dom/by-id inner-square-id)
-                            transmitter
-                            (fn [evt]
-                              (dom/log transmitter)
-                              (p/put-message transmitter {msg/type :play-move msg/topic path :player :x})))
-  )
+(defn enable-moves [renderer [_ path transform-name messages] transmitter]
+  (doseq [i (range 9)
+          :let [path (conj path i)]]
+    (doseq [i (range 9)
+            :let [path (conj path i)]]
+      (dom/log [transform-name messages])
+      (dom-events/listen! (dom/by-id (render/get-id renderer path))
+                          :click
+                          (fn [e]
+                            (p/put-message transmitter {msg/type :play-move msg/topic path :player :x}))))))
 
-;; The data structure below is used to map rendering data to functions
-;; which handle rendering for that specific change. This function is
-;; referenced in config/config.clj and must be a function in order to
-;; be used from the tool's "render" view.
+(defn disable-moves [renderer [_ path transform-name messages] transmitter]
+  (doseq [i (range 9)
+          :let [path (conj path i)]]
+    (doseq [i (range 9)
+            :let [path (conj path i)]] 
+      (dom-events/unlisten! (dom/by-id (render/get-id renderer path))))))
 
 (defn render-config []
-  [;; All :node-create deltas for the node at :greeting will
-   ;; be rendered by the `render-page` function. The node name
-   ;; :greeting is a default name that is used when we don't
-   ;; provide our own combines and emits. To name your own nodes,
-   ;; create a custom combine or emit in the application's behavior.
-   [:node-create  [:ttt] render-page]
-   ;; All :node-destroy deltas for this path will be handled by the
-   ;; library function `d/default-exit`.
-   [:node-destroy   [:ttt] d/default-exit]
-   ;; All :value deltas for this path will be handled by the
-   ;; function `render-message`.
-   [:value [:ttt :* :*] render-move]
-   [:transform-enable [:ttt] enable-moves]
-   [:transform-disable [:ttt] disable-moves]])
-
-;; In render-config, paths can use wildcard keywords :* and :**. :*
-;; means exactly one segment with any value. :** means 0 or more
-;; elements.
+  [[:node-create       [:ttt]       render-page]
+   [:node-destroy      [:ttt]       d/default-exit]
+   [:value             [:ttt :* :*] render-move]
+   [:transform-enable  [:ttt]       enable-moves]
+   [:transform-disable [:ttt]       disable-moves]])
